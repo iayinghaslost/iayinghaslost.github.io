@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Iaying's Catastrophic Crypto Failure</title>
+  <style>
+    @font-face {
+      font-family: 'c64';
+      src: local('C64 Pro Mono'), local('C64'), monospace;
+    }
+
+    :root {
+      --main-color: #FF0000;
+      --secondary-color: #FF4500;
+      --bg-color: #000000;
+      --container-bg: rgba(20, 0, 0, 0.9);
+      --text-bright: #FFFFFF;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      background-color: var(--bg-color);
+      color: var(--main-color);
+      font-family: 'c64', monospace;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 1rem;
+      overflow-x: hidden;
+    }
+
+    .crt-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 10;
+    }
+
+    .crt-overlay::before {
+      content: " ";
+      display: block;
+      position: absolute;
+      top: 0;
+      left: 0;
+      bottom: 0;
+      right: 0;
+      background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%),
+                  linear-gradient(90deg, rgba(255, 0, 0, 0.09), rgba(0, 0, 0, 0.02), rgba(255, 0, 0, 0.06));
+      background-size: 100% 2px, 3px 100%;
+      animation: flicker 0.15s infinite;
+    }
+
+    .crt-overlay::after {
+        content: " ";
+        display: block;
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: var(--bg-color);
+        opacity: 0.1;
+        animation: scanline 8s linear infinite;
+    }
+
+    @keyframes flicker {
+      0% { opacity: 0.2; } 5% { opacity: 0.5; } 10% { opacity: 0.25; } 20% { opacity: 0.8; } 25% { opacity: 0.4; } 30% { opacity: 0.7; } 35% { opacity: 0.1; } 40% { opacity: 0.8; } 45% { opacity: 0.45; } 50% { opacity: 0.9; } 55% { opacity: 0.5; } 60% { opacity: 0.6; } 65% { opacity: 0.3; } 70% { opacity: 0.7; } 75% { opacity: 0.4; } 80% { opacity: 0.2; } 85% { opacity: 0.7; } 90% { opacity: 0.5; } 95% { opacity: 0.6; } 100% { opacity: 0.3; }
+    }
+    
+    @keyframes scanline {
+        0% { transform: translateY(-100%); }
+        100% { transform: translateY(100%); }
+    }
+
+    .container {
+      border: 4px double var(--main-color);
+      padding: 1rem 2rem;
+      margin: 1rem;
+      width: 100%;
+      max-width: 1000px;
+      background: var(--container-bg);
+      box-shadow: 0 0 25px var(--main-color);
+      position: relative;
+      z-index: 1;
+    }
+
+    h1, h2 {
+      color: var(--secondary-color);
+      text-shadow: 0 0 10px var(--main-color), 0 0 20px var(--main-color);
+      margin-bottom: 1rem;
+      animation: text-glitch 2.5s infinite alternate;
+    }
+
+    h1 { font-size: 2.5rem; letter-spacing: 5px; }
+    h2 { font-size: 1.8rem; }
+
+    @keyframes text-glitch {
+      0% { text-shadow: 0 0 10px var(--main-color); transform: skewX(0); }
+      5% { text-shadow: 2px 2px 10px var(--secondary-color); transform: skewX(-2deg); }
+      10% { text-shadow: -2px -2px 10px var(--main-color); transform: skewX(2deg); }
+      15% { text-shadow: 0 0 10px var(--main-color); transform: skewX(0); }
+      100% { text-shadow: 0 0 10px var(--main-color); transform: skewX(0); }
+    }
+
+    #total-loss-value {
+      font-size: 3.5rem;
+      color: var(--main-color);
+      text-shadow: 0 0 20px var(--main-color);
+      margin: 0.5rem 0;
+      animation: pulse 1.2s infinite;
+    }
+
+    @keyframes pulse {
+      0% { transform: scale(1); text-shadow: 0 0 20px var(--main-color); }
+      50% { transform: scale(1.03); text-shadow: 0 0 30px var(--secondary-color); }
+      100% { transform: scale(1); text-shadow: 0 0 20px var(--main-color); }
+    }
+
+    .stat, .what-if-item, .mullvad-tx, #labor-equivalent {
+      font-size: 1.2rem;
+      margin-top: 1rem;
+      line-height: 1.6;
+    }
+
+    .stat-value, .labor-hours {
+      color: var(--text-bright);
+      font-weight: bold;
+    }
+
+    .labor-hours {
+        font-size: 2rem;
+        color: var(--secondary-color);
+        display: block;
+        margin-top: 0.5rem;
+    }
+    
+    .what-if-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 1rem;
+        margin-top: 1.5rem;
+    }
+
+    .what-if-item {
+        background: rgba(50, 0, 0, 0.5);
+        border: 2px solid var(--secondary-color);
+        padding: 1rem;
+    }
+    
+    .what-if-item .price {
+        color: var(--text-bright);
+    }
+    
+    .what-if-item .value {
+        color: var(--main-color);
+        font-size: 1.5rem;
+        display: block;
+        margin-top: 0.5rem;
+    }
+
+    .mullvad-icon {
+      width: 24px;
+      height: 24px;
+      vertical-align: middle;
+      margin-right: 8px;
+      filter: drop-shadow(0 0 5px var(--main-color));
+    }
+    
+    canvas {
+      width: 100% !important;
+      height: 500px !important;
+    }
+
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+</head>
+<body>
+  <div class="crt-overlay"></div>
+
+  <div class="container">
+    <h1>CRITICAL FAILURE</h1>
+    <p>Unrecoverable asset: <strong>0.01510061 BTC</strong></p>
+    <p>Current Unrealized Loss:</p>
+    <div id="total-loss-value">$....</div>
+    <div id="btc-price" class="stat">...</div>
+  </div>
+
+  <div id="loss-summary" class="container">
+      <h2>DAMAGE ASSESSMENT</h2>
+      <div id="loss-velocity" class="stat">Loss Velocity (24h): <span class="stat-value">Calculating...</span></div>
+      <div id="ath-loss" class="stat">Loss at All-Time-High: <span class="stat-value">Calculating...</span></div>
+  </div>
+
+  <div id="labor-equivalent-container" class="container">
+      <h2>LABOR EQUIVALENT</h2>
+      <div id="labor-equivalent">
+          <p>This loss represents the following amount of work at minimum wage:</p>
+          <span class="labor-hours">Calculating...</span>
+      </div>
+  </div>
+
+  <div id="what-if-container" class="container">
+      <h2>CATASTROPHE PROJECTION</h2>
+      <p>Projected losses at key BTC price points:</p>
+      <div class="what-if-grid">
+          <div class="what-if-item"><span class="price">BTC at $100,000</span><span id="what-if-100k" class="value">$...</span></div>
+          <div class="what-if-item"><span class="price">BTC at $250,000</span><span id="what-if-250k" class="value">$...</span></div>
+          <div class="what-if-item"><span class="price">BTC at $500,000</span><span id="what-if-500k" class="value">$...</span></div>
+      </div>
+  </div>
+  
+  <div id="chart-container" class="container">
+    <h2>365-DAY CORRUPTION LOG</h2>
+    <canvas id="btcLossChart"></canvas>
+  </div>
+
+  <div class="container">
+    <h2>
+      <img class="mullvad-icon" src="https://mullvad.net/press/MullvadVPN_logo_Round_RGB_Color_positive.png" alt="Mullvad Logo">
+      OUTGOING TRANSMISSIONS
+    </h2>
+    <div id="mullvad-tx1" class="mullvad-tx"></div>
+    <div id="mullvad-tx2" class="mullvad-tx"></div>
+    <div id="mullvad-tx3" class="mullvad-tx"></div>
+  </div>
+
+  <script>
+    const btcAmount = 0.01510061;
+    let chartInstance = null;
+
+    async function fetchAPIData(endpoint) {
+        try {
+            const resp = await fetch(`https://api.coingecko.com/api/v3/${endpoint}`);
+            if (!resp.ok) {
+                console.error(`API Error for ${endpoint}: ${resp.status} ${resp.statusText}`);
+                const errorBody = await resp.json();
+                console.error("Error details:", errorBody);
+                return null;
+            }
+            return await resp.json();
+        } catch (e) {
+            console.error(`Failed to fetch ${endpoint}`, e);
+            return null;
+        }
+    }
+
+    async function updateCurrentData() {
+        const btcData = await fetchAPIData('simple/price?ids=bitcoin&vs_currencies=usd&include_24hr_change=true');
+        const athData = await fetchAPIData('coins/bitcoin?localization=false&tickers=false&market_data=true&community_data=false&developer_data=false');
+        if (!btcData || !btcData.bitcoin || !athData) return;
+
+        const btcPrice = btcData.bitcoin.usd;
+        const totalLoss = btcAmount * btcPrice;
+        const change24h = btcData.bitcoin.usd_24h_change;
+
+        document.getElementById('total-loss-value').textContent = `$${totalLoss.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+        document.getElementById('btc-price').innerHTML = `BTC Price in USD: <span class="stat-value">$${btcPrice.toLocaleString('en-US')}</span>`;
+
+        const price24hAgo = btcPrice / (1 + (change24h / 100));
+        const loss24hAgo = btcAmount * price24hAgo;
+        const lossPerHour = (totalLoss - loss24hAgo) / 24;
+        const velocityColor = lossPerHour >= 0 ? '#00FF00' : 'var(--main-color)';
+        const velocityLabel = lossPerHour >= 0 ? 'Gaining' : 'Losing';
+        document.getElementById('loss-velocity').innerHTML = `Loss Velocity (24h): <span class="stat-value" style="color: ${velocityColor};">${velocityLabel} $${Math.abs(lossPerHour).toFixed(2)}/hour</span>`;
+
+        const athPrice = athData.market_data.ath.usd;
+        const athLoss = btcAmount * athPrice;
+        document.getElementById('ath-loss').innerHTML = `Loss at All-Time-High ($${athPrice.toLocaleString()}): <span class="stat-value">$${athLoss.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>`;
+        
+        updateLaborEquivalent(totalLoss);
+        
+        updateMullvadTracker(btcPrice);
+        document.getElementById('what-if-100k').textContent = `$${(btcAmount * 100000).toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
+        document.getElementById('what-if-250k').textContent = `$${(btcAmount * 250000).toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
+        document.getElementById('what-if-500k').textContent = `$${(btcAmount * 500000).toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
+    }
+    
+    function updateLaborEquivalent(currentLoss) {
+        const minimumWage = 10.70; 
+        const hoursOfLabor = currentLoss / minimumWage;
+        const fullWorkDays = hoursOfLabor / 8;
+        const fullWorkWeeks = hoursOfLabor / 40;
+
+        document.querySelector('.labor-hours').innerHTML = 
+        `${hoursOfLabor.toLocaleString('en-US', {maximumFractionDigits: 0})} hours<br>
+        <span style="font-size: 0.7em; color: var(--text-bright);">
+        (or ${fullWorkDays.toLocaleString('en-US', {maximumFractionDigits: 0})} 8-hour days, or ${fullWorkWeeks.toLocaleString('en-US', {maximumFractionDigits: 1})} 40-hour weeks)
+        </span>`;
+    }
+
+    async function initializeChart() {
+        const historicalData = await fetchAPIData('coins/bitcoin/market_chart?vs_currency=usd&days=365&interval=daily');
+        if (!historicalData || !historicalData.prices) {
+            document.getElementById('chart-container').innerHTML = "<h2>HISTORICAL DATA UNAVAILABLE</h2>";
+            return;
+        }
+        renderChart(historicalData.prices);
+    }
+    
+function renderChart(prices) {
+    if (chartInstance) {
+        chartInstance.destroy();
+    }
+
+    const labels = prices.map(p => p[0]);
+    const lossValues = prices.map(p => btcAmount * p[1]);
+
+    const ctx = document.getElementById('btcLossChart').getContext('2d');
+    const gradient = ctx.createLinearGradient(0, 0, 0, 400);
+    gradient.addColorStop(0, 'rgba(255, 0, 0, 0.6)');
+    gradient.addColorStop(1, 'rgba(255, 0, 0, 0)');
+
+    chartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Loss in USD',
+                data: lossValues,
+                borderColor: '#FFFFFF',
+                backgroundColor: gradient,
+                fill: true,
+                tension: 0.2,
+                pointRadius: 0,
+                pointHitRadius: 10
+            }]
+        },
+        options: {
+            maintainAspectRatio: false,
+            scales: {
+                x: {
+                    type: 'time',
+                    time: { unit: 'month' },
+                    grid: { color: 'rgba(255, 255, 255, 0.2)' },
+                    ticks: { color: '#FFFFFF' }
+                },
+                y: {
+                    title: { display: true, text: 'Loss (USD)', color: '#FFFFFF' },
+                    grid: { color: 'rgba(255, 255, 255, 0.2)' },
+                    ticks: {
+                        callback: v => `$${v.toLocaleString()}`,
+                        color: '#FFFFFF'
+                    }
+                }
+            },
+            plugins: {
+                legend: {
+                    display: true,
+                    labels: { color: '#FFFFFF' }
+                },
+                tooltip: {
+                    bodyColor: '#FFFFFF',
+                    titleColor: '#FFFFFF',
+                    backgroundColor: 'rgba(0, 0, 0, 0.9)',
+                    borderColor: 'var(--main-color)',
+                    borderWidth: 1,
+                    callbacks: {
+                        label: ctx => `Loss: $${ctx.parsed.y.toLocaleString('en-US', {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2
+                        })}`
+                    }
+                }
+            }
+        }
+    });
+}
+
+
+    function updateMullvadTracker(btcPrice) {
+      const transactions = [
+        { amount: 0.00031383, originalUsd: 20.07, address: "bc1qwlnfnyhyw6fzl02a28c983ax6sa2hn9glq28cx" },
+        { amount: 0.00007837, originalUsd: 5.01, address: "bc1qt6v72sxmswsczsefswgz8s5dhstkl8cxpmdsu5" },
+        { amount: 0.00007011, originalUsd: 4.85, address: "bc1qgxp0vqdyej5u70586jhdups2amta2qnvhdd68j" }
+      ];
+
+      transactions.forEach((tx, i) => {
+        const currentUsd = tx.amount * btcPrice;
+        document.getElementById(`mullvad-tx${i+1}`).innerHTML = `
+          <strong>${tx.amount} BTC</strong> ($${tx.originalUsd.toFixed(2)} when sent) → 
+          <strong style="color:var(--main-color);">$${currentUsd.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} now</strong><br>
+          <span style="color:var(--secondary-color); font-size: 0.8em;">DESTINATION: ${tx.address}</span>
+        `;
+      });
+    }
+
+    updateCurrentData();
+    initializeChart();
+
+    setInterval(updateCurrentData, 60000);
+
+  </script>
+</body>
+</html>
