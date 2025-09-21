@@ -18,7 +18,7 @@
   .left-col{ width:220px; display:flex; flex-direction:column; gap:12px; }
   .icon{ background:var(--panel); border:1px solid rgba(255,0,0,0.06); padding:10px; border-radius:8px; text-align:center; cursor:pointer; }
   .icon .title{ font-size:13px; color:var(--muted); margin-top:8px; }
-  .desktop-main{ flex:1; position:relative; height:calc(100vh - 80px); overflow:hidden; }
+  .desktop-main{ flex:1; position:relative; height:calc(100vh - 98px); overflow:hidden; }
 
   .taskbar{ position:absolute; right:0; left:0; bottom:0; height:54px; background:linear-gradient(180deg, rgba(0,0,0,0.8), rgba(20,0,0,0.8)); border-top:2px solid rgba(255,0,0,0.06); display:flex; align-items:center; justify-content:space-between; padding:8px 16px; }
   .task-left, .task-right { display:flex; gap:14px; align-items:center; }
@@ -224,8 +224,8 @@ function buildWindowContent(type, pid) {
     
     switch(type) {
         case 'assembly':
-            lifetime = 18000;
-            const isMba = Math.random() < 0.4;
+            lifetime = 25000;
+            const isMba = Math.random() < 0.6;
             const { question, answer } = isMba ? generateMBAAssemblyQuestion() : generateAssemblyQuestion();
             content += `<p>Calculate final EAX value${isMba ? ' (<b style="color:red">MBA Obfuscation</b>)' : ''}:</p><div style="font-family:monospace; background:#111; padding:5px;">${question}</div><input type="number" id="asm_input_${pid}"><button class="btn warn" onclick="submitAsm(${pid}, ${answer})">Execute</button>`;
             break;
@@ -363,39 +363,57 @@ function handleRansom(pid, didPay, amount) { if (didPay) { handleAction(pid, fal
 function handlePriorityClick(pid, isCritical) { isCritical ? handleAction(pid, true, 15) : handleAction(pid, false, null, [200, "Wrong process priority set!"]); }
 function handleColorMatch(pid, clicked, correct) { clicked === correct ? handleAction(pid, true, 12) : handleAction(pid, false, null, [200, "Cognitive dissonance detected!"]); }
 function handleDodgerClick(pid) { handleAction(pid, true, 10); }
-function submitAsm(pid, answer) { const input = document.getElementById(`asm_input_${pid}`); parseInt(input.value) === answer ? handleAction(pid, true, 30) : handleAction(pid, false, null, [350, "Assembly calculation failed! Job terminated."]); }
+function submitAsm(pid, answer) {
+    const input = document.getElementById(`asm_input_${pid}`);
+    if (parseInt(input.value) === answer) {
+        if (state.isJobActive) {
+            clearInterval(state.jobIncomeInterval);
+            state.isJobActive = false;
+            state.jobCooldownUntil = Date.now() + 30000;
+        }
+        handleAction(pid, true, 30);
+    } else {
+        handleAction(pid, false, null, [350, "Assembly calculation failed! Job terminated."]);
+    }
+}
 
 function generateAssemblyQuestion() {
     let eax = 0; let question = '';
-    const v1 = Math.floor(Math.random()*20)+5;
+    const v1 = Math.floor(Math.random() * 20) + 5;
     eax = v1; question += `MOV EAX, ${v1}<br>`;
     const op1 = Math.random() > 0.5 ? 'ADD' : 'SUB';
-    const v2 = Math.floor(Math.random()*10)+1;
-    if(op1==='ADD') eax += v2; else eax -= v2;
+    const v2 = Math.floor(Math.random() * 15) + 1;
+    if (op1 === 'ADD') eax += v2; else eax -= v2;
     question += `${op1} EAX, ${v2}<br>`;
     const op2 = Math.random() > 0.5 ? 'ADD' : 'SUB';
-    const v3 = Math.floor(Math.random()*10)+1;
-    if(op2==='ADD') eax += v3; else eax -= v3;
-    question += `${op2} EAX, ${v3}`;
+    const v3 = Math.floor(Math.random() * 15) + 1;
+    if (op2 === 'ADD') eax += v3; else eax -= v3;
+    question += `${op2} EAX, ${v3}<br>`;
+    const op3 = Math.random() > 0.5 ? 'ADD' : 'SUB';
+    const v4 = Math.floor(Math.random() * 15) + 1;
+    if (op3 === 'ADD') eax += v4; else eax -= v4;
+    question += `${op3} EAX, ${v4}`;
     return { question, answer: eax };
 }
+
 function generateMBAAssemblyQuestion() {
     let eax = 0; let question = '';
     const ops = ['ADD', 'SUB', 'XOR', 'AND', 'OR', 'SHL'];
-    const v1 = Math.floor(Math.random()*16)+8;
+    const v1 = Math.floor(Math.random() * 16) + 8;
     eax = v1; question += `MOV EAX, ${v1}<br>`;
-    for(let i=0; i<2; i++) {
-        const op = ops[Math.floor(Math.random()*ops.length)];
+    const numOperations = 4;
+    for (let i = 0; i < numOperations; i++) {
+        const op = ops[Math.floor(Math.random() * ops.length)];
         let v = 0;
-        switch(op) {
-            case 'ADD': v=Math.floor(Math.random()*10)+1; eax += v; break;
-            case 'SUB': v=Math.floor(Math.random()*10)+1; eax -= v; break;
-            case 'XOR': v=Math.floor(Math.random()*16); eax ^= v; break;
-            case 'AND': v=Math.floor(Math.random()*16); eax &= v; break;
-            case 'OR':  v=Math.floor(Math.random()*16); eax |= v; break;
-            case 'SHL': v=Math.floor(Math.random()*2)+1; eax <<= v; break;
+        switch (op) {
+            case 'ADD': v = Math.floor(Math.random() * 15) + 1; eax += v; break;
+            case 'SUB': v = Math.floor(Math.random() * 15) + 1; eax -= v; break;
+            case 'XOR': v = Math.floor(Math.random() * 32); eax ^= v; break;
+            case 'AND': v = Math.floor(Math.random() * 32); eax &= v; break;
+            case 'OR': v = Math.floor(Math.random() * 32); eax |= v; break;
+            case 'SHL': v = Math.floor(Math.random() * 2) + 1; eax <<= v; break;
         }
-        question += `${op} EAX, ${v}${i < 1 ? '<br>' : ''}`;
+        question += `${op} EAX, ${v}${i < numOperations - 1 ? '<br>' : ''}`;
     }
     return { question, answer: eax };
 }
@@ -576,7 +594,6 @@ async function boot(){
   });
 
   overlayOk.onclick = ()=> {SFX.play('click'); overlay.style.display='none'};
-  bsodRestart.onclick = ()=> location.reload();
 }
 
 boot();
