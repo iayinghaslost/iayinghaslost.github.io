@@ -1,0 +1,585 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>IAYING PC SIMULATOR - 1 to 1 with actual PC during crypto loss.</title>
+<style>
+  :root{
+    --bg:#0b0b0d; --panel:#12060a; --accent:#ff2d2d; --accent2:#ff9a3c;
+    --text:#ffdfe0; --muted:rgba(255,255,255,0.45); --glass: rgba(255,255,255,0.02);
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%; margin:0; font-family: "Segoe UI", Tahoma, monospace; background:linear-gradient(180deg,#050405 0%, #0b0b0d 100%); color:var(--text); overflow:hidden}
+  .desktop{ position:relative; width:100%; height:100vh; background: radial-gradient(circle at 10% 10%, rgba(255,0,0,0.02), transparent 15%), linear-gradient(180deg, rgba(255,10,10,0.02), rgba(0,0,0,0.03)); padding:22px; display:flex; gap:18px; align-items:flex-start; transition: transform 0.1s; }
+  .desktop.shake{ animation: shake 0.4s cubic-bezier(.36,.07,.19,.97) both; }
+  @keyframes shake { 10%, 90% { transform: translate3d(-1px, 0, 0); } 20%, 80% { transform: translate3d(2px, 0, 0); } 30%, 50%, 70% { transform: translate3d(-4px, 0, 0); } 40%, 60% { transform: translate3d(4px, 0, 0); } }
+
+  .left-col{ width:220px; display:flex; flex-direction:column; gap:12px; }
+  .icon{ background:var(--panel); border:1px solid rgba(255,0,0,0.06); padding:10px; border-radius:8px; text-align:center; cursor:pointer; }
+  .icon .title{ font-size:13px; color:var(--muted); margin-top:8px; }
+  .desktop-main{ flex:1; position:relative; height:calc(100vh - 80px); overflow:hidden; }
+
+  .taskbar{ position:absolute; right:0; left:0; bottom:0; height:54px; background:linear-gradient(180deg, rgba(0,0,0,0.8), rgba(20,0,0,0.8)); border-top:2px solid rgba(255,0,0,0.06); display:flex; align-items:center; justify-content:space-between; padding:8px 16px; }
+  .task-left, .task-right { display:flex; gap:14px; align-items:center; }
+  .badge{ background:var(--glass); padding:8px 12px; border-radius:8px; font-weight:600; color:var(--text); border:1px solid rgba(255,255,255,0.03); }
+  .taskbar-procs { display: flex; gap: 6px; }
+  .taskbar-btn { background: var(--panel); border: 1px solid #333; color: var(--muted); padding: 4px 8px; border-radius: 4px; font-size: 12px; cursor: pointer; }
+
+  .win { position:absolute; width:360px; min-height:120px; background:linear-gradient(180deg, rgba(20,0,0,0.9), rgba(10,0,0,0.95)); border:2px solid rgba(255,40,40,0.12); box-shadow: 0 6px 30px rgba(0,0,0,0.6); color:var(--text); border-radius:6px; overflow:hidden; display:flex; flex-direction:column; z-index:100; user-select:none; }
+  .win .title{ background:linear-gradient(90deg, rgba(255,20,20,0.08), rgba(0,0,0,0.08)); padding:8px; display:flex; justify-content:space-between; align-items:center; font-weight:700; color:var(--accent); }
+  .btn { background:var(--accent); color:#111; border:none; padding:4px 8px; border-radius:4px; cursor:pointer; font-weight:700; }
+  .btn.warn{ background:var(--accent2); color:#111 }
+  .win .body{ padding:10px; font-size:13px; color:var(--text); display:flex; flex-direction:column; gap:8px; }
+  .timerbar{ height:8px; background:rgba(255,255,255,0.04); border-radius:6px; overflow:hidden; width:100%; }
+  .timerbar .fill{ height:100%; width:0%; background:linear-gradient(90deg,var(--accent),var(--accent2)); }
+
+  .overlay { position:absolute; inset:0; background:rgba(0,0,0,0.65); display:none; align-items:center; justify-content:center; z-index:1000; }
+  .overlay .box{ background:#110102; padding:20px; border-radius:8px; border:2px solid rgba(255,0,0,0.12); text-align:center; color:var(--text); width:540px; }
+  .overlay .box .big{ font-size:20px; color:var(--accent); margin-bottom:8px }
+  .bsod { position:absolute; inset:0; background:#001f3f; color:#e9f6ff; font-family: "Lucida Console", Monaco, monospace; display:none; z-index:9999; padding:40px; }
+  
+  .dodger-target { position: absolute; width: 32px; height: 32px; background: var(--accent); cursor: pointer; transform: translate(0, 0); border-radius: 50%;}
+  .recovery-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; }
+  .recovery-block { aspect-ratio: 1/1; cursor: pointer; }
+  .healthy { background: rgba(0,255,100,0.1); }
+  .corrupt { background: rgba(255,100,0,0.4); }
+  .parity { background: yellow; animation: blink 1s infinite; }
+  @keyframes blink { 50% { background: #333; } }
+
+  @media (max-width:900px){ .left-col{ display:none } .win{ width:84%; left:8%; } }
+</style>
+</head>
+<body>
+  <div class="desktop" id="desktop">
+    <div class="left-col">
+      <div class="icon" id="icon-vault"> <div style="font-size:28px; color:var(--accent)">🄵</div> <div class="title">Vault</div> </div>
+      <div class="icon" id="icon-meme"> <div style="font-size:28px; color:#ffd55a">🎯</div> <div class="title">Post Meme</div> </div>
+      <div class="icon" id="icon-hustle"> <div style="font-size:28px; color:#50fa7b">💸</div> <div class="title">Side_Hustle.bat</div> </div>
+      <div class="icon" id="icon-job"> <div style="font-size:28px; color:#8be9fd">💼</div> <div class="title">Job.exe</div> </div>
+      <div class="icon" id="icon-cleanup"> <div style="font-size:28px; color:#ff79c6">🧹</div> <div class="title">Cleanup.exe</div> </div>
+    </div>
+    <div class="desktop-main" id="main"></div>
+    <div class="taskbar">
+      <div class="task-left">
+          <div class="badge" id="badge-btc">BTC: ...</div> 
+          <div class="badge" id="badge-usd">USD: ...</div>
+          <div class="taskbar-procs" id="taskbar-procs"></div>
+      </div>
+      <div class="task-right">
+        <div class="badge" id="badge-copium">Copium: 50%</div>
+        <div class="badge" id="badge-clock">00:00:00</div>
+      </div>
+    </div>
+    <div class="taunt" id="taunt">IAYING PC SIMULATOR - 1 to 1 with actual PC during crypto loss.</div>
+    <div class="overlay" id="overlay">
+      <div class="box"> <div class="big" id="overlay-title"></div> <div id="overlay-msg"></div> <div style="margin-top:12px"><button class="btn" id="overlay-ok">OK</button></div> </div>
+    </div>
+    <div class="bsod" id="bsod">
+  <h1>*** IAYING'S PC FAILED ***</h1>
+  <p>Iaying's PC has failed and all the crypto has been lost. Should've created his wallet via Exodus and saved his recovery code instead of on a website where the only place he saved his password was via Chrome!</p>
+  <p id="bsod-detail"></p>
+  <p id="bsod-survival"></p></div>
+
+  </div>
+
+<script>
+const startTime = Date.now();
+const INITIAL_BTC = 0.01510061;
+let btcPrice = 65000;
+let highestZ = 100;
+let state = {
+  copium: 50, meltdown: 0, alive: true,
+  spawnRate: 2800, maxConcurrent: 3, currentBtcAmount: INITIAL_BTC,
+  isJobActive: false, jobCooldownUntil: 0, jobIncomeInterval: null,
+  cleanupCooldownUntil: 0
+};
+
+const desktop = document.getElementById('desktop');
+const main = document.getElementById('main');
+const badgeBtc = document.getElementById('badge-btc');
+const badgeUsd = document.getElementById('badge-usd');
+const badgeCopium = document.getElementById('badge-copium');
+const badgeClock = document.getElementById('badge-clock');
+const overlay = document.getElementById('overlay');
+const overlayTitle = document.getElementById('overlay-title');
+const overlayMsg = document.getElementById('overlay-msg');
+const overlayOk = document.getElementById('overlay-ok');
+const bsod = document.getElementById('bsod');
+const bsodDetail = document.getElementById('bsod-detail');
+const taskbarProcs = document.getElementById('taskbar-procs');
+let spawnTimer = null, priceTimer = null, tickTimer = null, clockTimer = null;
+
+function clamp(v,a,b){return Math.max(a,Math.min(b,v))}
+function nice(v){ return v.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}
+function humanTime(sec){ const m=Math.floor(sec/60); const s=Math.floor(sec%60); return `${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`}
+
+async function fetchPrice(){
+  try {
+    const res = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd');
+    btcPrice = (await res.json()).bitcoin.usd;
+  } catch(e) { console.warn("Price fetch failed."); }
+}
+
+const SFX = {
+    ctx: null,
+    init() { if(!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)(); },
+    play(type) {
+        if(!this.ctx) return;
+        this.ctx.resume();
+        const o = this.ctx.createOscillator(); const g = this.ctx.createGain();
+        o.connect(g); g.connect(this.ctx.destination);
+        switch(type) {
+            case 'new': o.frequency.value=300; g.gain.setValueAtTime(0.2, this.ctx.currentTime); break;
+            case 'success': o.frequency.value=600; g.gain.setValueAtTime(0.3, this.ctx.currentTime); break;
+            case 'fail': o.frequency.value=150; g.gain.setValueAtTime(0.4, this.ctx.currentTime); o.type='sawtooth'; break;
+            case 'click': o.frequency.value=440; g.gain.setValueAtTime(0.1, this.ctx.currentTime); break;
+        }
+        o.start(); o.stop(this.ctx.currentTime + 0.1);
+    }
+};
+document.body.addEventListener('click', () => SFX.init(), { once: true });
+
+const WindowManager = {
+    windows: new Map(),
+    create(type) {
+        if (!state.alive || this.windows.size >= state.maxConcurrent) return;
+        SFX.play('new');
+        const win = document.createElement('div'); win.className = 'win';
+        const pid = Math.floor(Math.random()*9000)+1000;
+        
+        const mainHeight = main.clientHeight;
+        const maxTop = Math.max(0, mainHeight - 300); 
+        win.style.left = `${20 + Math.random() * (main.clientWidth - 380)}px`;
+        win.style.top = `${20 + Math.random() * maxTop}px`;
+        win.style.zIndex = ++highestZ;
+        
+        main.appendChild(win);
+        
+        const { lifetime, content, postCreate } = buildWindowContent(type, pid);
+        win.innerHTML = content;
+        if(postCreate) postCreate();
+        
+        win.onmousedown = () => this.focus(pid);
+
+        const fillElement = win.querySelector('.fill');
+        const onTimeout = () => {
+            if (this.windows.has(pid)) {
+                handleFailure(pid, 150, `Process timed out [${type.toUpperCase()}]`);
+            }
+        };
+        const animationId = this.startTimer(pid, fillElement, lifetime, onTimeout);
+        
+        const taskbarBtn = document.createElement('button');
+        taskbarBtn.className = 'taskbar-btn';
+        taskbarBtn.textContent = pid;
+        taskbarBtn.onclick = () => { SFX.play('click'); this.focus(pid); }
+        taskbarProcs.appendChild(taskbarBtn);
+        this.windows.set(pid, { el: win, animationId: animationId, taskbarBtn: taskbarBtn, type: type });
+    },
+    destroy(pid) {
+        if (!this.windows.has(pid)) return;
+        const { el, animationId, taskbarBtn } = this.windows.get(pid);
+        cancelAnimationFrame(animationId);
+        if (document.body.contains(el)) el.remove();
+        if (document.body.contains(taskbarBtn)) taskbarBtn.remove();
+        this.windows.delete(pid);
+    },
+    startTimer(pid, fill, lifetime, onTimeout) {
+        let start = Date.now();
+        let animId;
+        const loop = () => {
+            if (!this.windows.has(pid)) return;
+            const pct = clamp(((Date.now() - start) / lifetime) * 100, 0, 100);
+            if (fill) fill.style.width = pct + '%';
+            if (pct >= 100) onTimeout();
+            else animId = requestAnimationFrame(loop);
+        };
+        animId = requestAnimationFrame(loop);
+        return animId;
+    },
+    focus(pid) {
+        if (!this.windows.has(pid)) return;
+        this.windows.get(pid).el.style.zIndex = ++highestZ;
+    },
+};
+
+const WIN_TYPES_WEIGHTED = [
+    { type: 'spam', weight: 1 }, { type: 'killproc', weight: 3 }, { type: 'captcha', weight: 3 },
+    { type: 'rescue', weight: 2 }, { type: 'math', weight: 4 }, { type: 'phishing', weight: 2 },
+    { type: 'unzipbomb', weight: 2 }, { type: 'firewall', weight: 4 }, { type: 'ransom', weight: 1 },
+    { type: 'priority', weight: 4 }, { type: 'colormatch', weight: 5 }, { type: 'dodger', weight: 5 },
+    { type: 'recovery', weight: 4 }
+];
+const totalWeight = WIN_TYPES_WEIGHTED.reduce((sum, item) => sum + item.weight, 0);
+function chooseRandomWindowType() {
+    let rand = Math.random() * totalWeight;
+    for (const item of WIN_TYPES_WEIGHTED) if ((rand -= item.weight) < 0) return item.type;
+}
+
+function buildWindowContent(type, pid) {
+    let lifetime = (8000 + Math.random() * 4000) * 0.7;
+    let content = `<div class="title"><span>${type.toUpperCase()} [PID:${pid}]</span></div><div class="body"><div class="timerbar"><div class="fill"></div></div>`;
+    let postCreate = null;
+    
+    switch(type) {
+        case 'assembly':
+            lifetime = 18000;
+            const isMba = Math.random() < 0.4;
+            const { question, answer } = isMba ? generateMBAAssemblyQuestion() : generateAssemblyQuestion();
+            content += `<p>Calculate final EAX value${isMba ? ' (<b style="color:red">MBA Obfuscation</b>)' : ''}:</p><div style="font-family:monospace; background:#111; padding:5px;">${question}</div><input type="number" id="asm_input_${pid}"><button class="btn warn" onclick="submitAsm(${pid}, ${answer})">Execute</button>`;
+            break;
+        case 'dodger':
+            lifetime = 6000 + Math.random() * 2000;
+            content += `<p>Click the erratic malware before it executes!</p><div id="dodger_area_${pid}" style="height:100px;background:var(--panel);border:1px solid #333;position:relative;overflow:hidden;"><div class="dodger-target" onclick="handleDodgerClick(${pid})"></div></div>`;
+            setTimeout(() => {
+                const area = document.getElementById(`dodger_area_${pid}`);
+                const target = area?.querySelector('.dodger-target');
+                if (!target || !WindowManager.windows.has(pid)) return;
+                let x = 50, y = 50, vx = (Math.random()-0.5)*4, vy = (Math.random()-0.5)*4;
+                function move() {
+                    if (!WindowManager.windows.has(pid)) return;
+                    x += vx; y += vy;
+                    if (x<0 || x>area.clientWidth-32) vx*=-1;
+                    if (y<0 || y>area.clientHeight-32) vy*=-1;
+                    target.style.transform = `translate(${x}px, ${y}px)`;
+                    requestAnimationFrame(move);
+                }
+                move();
+            }, 0);
+            break;
+        case 'recovery':
+            lifetime *= 1.5;
+            content += `<p>Click PARITY (yellow) first, then repair CORRUPT (red).</p><div class="recovery-grid" id="grid_${pid}"></div>`;
+            postCreate = () => {
+                const grid = document.getElementById(`grid_${pid}`); if(!grid) return;
+                let parityClicked = false; let corruptCount = 4; const items = Array(25).fill('healthy');
+                items[Math.floor(Math.random()*25)] = 'parity';
+                for(let i=0; i<corruptCount; i++){ let idx=Math.floor(Math.random()*25); if(items[idx]==='healthy') items[idx]='corrupt'; else i--; }
+                items.forEach(type => {
+                    const block = document.createElement('div'); block.className = `recovery-block ${type}`;
+                    if(type==='parity') block.style.animation='blink 1s infinite';
+                    block.onclick = () => {
+                        SFX.play('click');
+                        if (type === 'parity') {
+                            if (parityClicked) return;
+                            parityClicked = true;
+                            block.className = 'recovery-block healthy';
+                            block.style.animation = '';
+                        } else if (type === 'corrupt') {
+                            if (!parityClicked) {
+                                handleFailure(pid, 200, "Data corruption! Must click parity bit first!");
+                            } else {
+                                block.className = 'recovery-block healthy';
+                                corruptCount--;
+                                if (corruptCount === 0) {
+                                    handleAction(pid, true, 20);
+                                }
+                            }
+                        } else { // This is for 'healthy' blocks
+                            if (!parityClicked) {
+                                handleFailure(pid, 200, "Data corruption! Must click parity bit first!");
+                            } else {
+                                handleFailure(pid, 200, "Incorrect repair target! Healthy data block selected.");
+                            }
+                        }
+                    };
+                    grid.appendChild(block);
+                });
+            };
+            break;
+        case 'colormatch':
+            const colors = [['Red', '#ff4d4d'], ['Green', '#33cc33'], ['Blue', '#4d94ff'], ['Yellow', '#ffcc00']];
+            const correctColor = colors[Math.floor(Math.random()*colors.length)];
+            const displayColor = colors[Math.floor(Math.random()*colors.length)];
+            content += `<p>Click the button that matches the WORD.</p><p style="font-size: 24px; font-weight: bold; text-align: center; color: ${displayColor[1]}">${correctColor[0]}</p>`;
+            colors.sort(() => .5 - Math.random()).forEach(([name, color]) => { content += `<button class="btn" style="background-color:${color}; flex:1;" onclick="handleColorMatch(${pid}, '${name}', '${correctColor[0]}')">${name}</button>`; });
+            break;
+        case 'priority':
+            const procs = [ { name: 'kernel_tasks.exe', cpu: '15%', critical: true }, { name: 'adware.exe', cpu: '75%', critical: false }, { name: 'explorer.exe', cpu: '5%', critical: false }, ].sort(() => .5 - Math.random());
+            content += `<p>System unstable. Set critical task priority to HIGH.</p>`;
+            procs.forEach(({name, cpu, critical}) => { content += `<div style="display:flex; justify-content:space-between; align-items:center; padding:4px; background:#222; border-radius:4px;"><span>${name} (${cpu})</span><button class="btn" onclick="handlePriorityClick(${pid}, ${critical})">Set HIGH</button></div>`; });
+            break;
+        case 'spam': content += "<p>YOU'VE WON! CLICK HERE!</p><button class='btn warn' onclick='handleSpamClose(" + pid + ")'>Close</button>"; break;
+        case 'killproc':
+            const procNames = ["svchost.exe", "altcoin_miner.exe", "chrome.exe", "spotify.exe"];
+            content += "<p>A rogue process is draining funds. Terminate it.</p>";
+            procNames.sort(() => .5 - Math.random()).forEach(name => { content += `<button class="btn" style="width:100%" onclick="handleKillProc(${pid}, ${name === "altcoin_miner.exe"})">${name}</button>`; });
+            break;
+        case 'captcha':
+            const code = Array.from({length: 6}, () => "ABCDEFGHJKMNPQRSTUVWXYZ23456789"[Math.floor(Math.random()*33)]).join('');
+            content += `<p>Prove you're not a bot: <b>${code}</b></p><input type="text" id="captcha_input_${pid}"><button class="btn warn" onclick="submitCaptcha(${pid}, '${code}')">Submit</button>`;
+            break;
+        case 'rescue':
+            lifetime *= 1.5; content += `<p>Wallet file \`keys.dat\` unsecure! Drag to Vault!</p><div style="font-size:48px;cursor:grab;text-align:center" draggable="true" ondragstart="event.dataTransfer.setData('text/plain', 'wallet-file')">📄</div>`;
+            break;
+        case 'math':
+            const isMult = Math.random() > 0.4;
+            const n1=Math.floor(Math.random()*(isMult?10:25))+4, n2=Math.floor(Math.random()*(isMult?10:25))+4;
+            const ans = isMult ? n1 * n2 : n1 + n2;
+            content += `<p>Calculate: ${n1} ${isMult?'×':'+'} ${n2} = ?</p><input type="number" id="math_input_${pid}"><button class="btn warn" onclick="submitMath(${pid}, ${ans})">Submit</button>`;
+            break;
+        case 'phishing':
+            lifetime *= 1.5; content += `<p>Wallet out of sync. Log in immediately.</p><div style="display:flex;gap:5px;"><button class="btn" onclick="handlePhishing(${pid}, true)">Login</button><button class="btn warn" onclick="handlePhishing(${pid}, false)">Close X</button></div>`;
+            break;
+        case 'unzipbomb':
+            content += `<p>\`update.zip\` requires action.</p><div style="display:flex;gap:5px;"><button class="btn" onclick="handleUnzip(${pid}, true)">Extract</button><button class="btn warn" onclick="handleUnzip(${pid}, false)">Delete</button></div>`;
+            break;
+        case 'firewall':
+            const threats = ["103.4.96.134", "202.5.23.12"];
+            content += `<p>Threat Intel: ${threats.join(', ')}</p>`;
+            const ips = ["127.0.0.1", "8.8.8.8", ...threats].sort(() => .5-Math.random());
+            ips.forEach(ip => { const isThreat = threats.includes(ip); content += `<div style="display:flex; justify-content:space-between; align-items:center; padding:4px; border-radius:4px; ${isThreat ? 'color: #ff8a8a;' : ''}"><span>${ip}</span><button class="btn" onclick="handleFirewall(${pid}, ${isThreat}, this)">Block</button></div>`; });
+            break;
+        case 'ransom':
+            lifetime *= 2; const ransom = 250;
+            content += `<p style="color:red; font-weight:bold;">Files encrypted! Pay ${ransom} USD now!</p><div style="display:flex;gap:5px;"><button class="btn" onclick="handleRansom(${pid}, true, ${ransom})">Pay $${ransom}</button><button class="btn warn" onclick="handleRansom(${pid}, false, 0)">Attempt Decryption</button></div>`;
+            break;
+    }
+    content += `</div>`;
+    return { lifetime, content, postCreate };
+}
+
+// Global handlers
+function handleAction(pid, success, copiumGain, failureArgs) {
+    SFX.play(success ? 'success' : 'fail');
+    if (success) {
+        const gain = Math.random() * 4 + 3; 
+        state.currentBtcAmount += gain / btcPrice;
+        state.copium += copiumGain;
+        WindowManager.destroy(pid);
+    } else {
+        handleFailure(pid, ...failureArgs);
+    }
+}
+function handleSpamClose(pid) { handleAction(pid, true, 2); }
+function handleKillProc(pid, isMiner) { isMiner ? handleAction(pid, true, 10) : handleAction(pid, false, null, [200, "Terminated critical system process!"]); }
+function submitCaptcha(pid, code) { const input = document.getElementById(`captcha_input_${pid}`); input.value.trim().toUpperCase() === code ? handleAction(pid, true, 10) : (input.value='', handleAction(pid, false, null, [250, "Bad captcha entry!"])); }
+function submitMath(pid, answer) { const input = document.getElementById(`math_input_${pid}`); parseInt(input.value) === answer ? handleAction(pid, true, 8) : (input.value='', handleAction(pid, false, null, [200, "Wrong answer!"])); }
+function handlePhishing(pid, didLogin) { didLogin ? handleAction(pid, false, null, [500, "PHISHING SCAM!"]) : handleAction(pid, true, 15); }
+function handleUnzip(pid, didExtract) { didExtract ? handleAction(pid, false, null, [400, "It was a ZIP BOMB!"]) : handleAction(pid, true, 10); }
+function handleFirewall(pid, isThreat, button) { SFX.play('click'); if (isThreat) { button.parentElement.remove(); const remaining = WindowManager.windows.get(pid)?.el.querySelectorAll('[onclick*="handleFirewall"]'); if (remaining && Array.from(remaining).every(el => !el.getAttribute('onclick').includes('true'))) { handleAction(pid, true, 15); } } else { handleAction(pid, false, null, [250, "Blocked a critical system connection!"]); } }
+function handleRansom(pid, didPay, amount) { if (didPay) { handleAction(pid, false, null, [amount, "You paid the ransom."]); } else { Math.random() < 0.05 ? handleAction(pid, true, 50) : handleAction(pid, false, null, [800, "Decryption failed! Data deleted!"]); } }
+function handlePriorityClick(pid, isCritical) { isCritical ? handleAction(pid, true, 15) : handleAction(pid, false, null, [200, "Wrong process priority set!"]); }
+function handleColorMatch(pid, clicked, correct) { clicked === correct ? handleAction(pid, true, 12) : handleAction(pid, false, null, [200, "Cognitive dissonance detected!"]); }
+function handleDodgerClick(pid) { handleAction(pid, true, 10); }
+function submitAsm(pid, answer) { const input = document.getElementById(`asm_input_${pid}`); parseInt(input.value) === answer ? handleAction(pid, true, 30) : handleAction(pid, false, null, [350, "Assembly calculation failed! Job terminated."]); }
+
+function generateAssemblyQuestion() {
+    let eax = 0; let question = '';
+    const v1 = Math.floor(Math.random()*20)+5;
+    eax = v1; question += `MOV EAX, ${v1}<br>`;
+    const op1 = Math.random() > 0.5 ? 'ADD' : 'SUB';
+    const v2 = Math.floor(Math.random()*10)+1;
+    if(op1==='ADD') eax += v2; else eax -= v2;
+    question += `${op1} EAX, ${v2}<br>`;
+    const op2 = Math.random() > 0.5 ? 'ADD' : 'SUB';
+    const v3 = Math.floor(Math.random()*10)+1;
+    if(op2==='ADD') eax += v3; else eax -= v3;
+    question += `${op2} EAX, ${v3}`;
+    return { question, answer: eax };
+}
+function generateMBAAssemblyQuestion() {
+    let eax = 0; let question = '';
+    const ops = ['ADD', 'SUB', 'XOR', 'AND', 'OR', 'SHL'];
+    const v1 = Math.floor(Math.random()*16)+8;
+    eax = v1; question += `MOV EAX, ${v1}<br>`;
+    for(let i=0; i<2; i++) {
+        const op = ops[Math.floor(Math.random()*ops.length)];
+        let v = 0;
+        switch(op) {
+            case 'ADD': v=Math.floor(Math.random()*10)+1; eax += v; break;
+            case 'SUB': v=Math.floor(Math.random()*10)+1; eax -= v; break;
+            case 'XOR': v=Math.floor(Math.random()*16); eax ^= v; break;
+            case 'AND': v=Math.floor(Math.random()*16); eax &= v; break;
+            case 'OR':  v=Math.floor(Math.random()*16); eax |= v; break;
+            case 'SHL': v=Math.floor(Math.random()*2)+1; eax <<= v; break;
+        }
+        question += `${op} EAX, ${v}${i < 1 ? '<br>' : ''}`;
+    }
+    return { question, answer: eax };
+}
+
+function handleFailure(pid, usdLost, reason){
+  const winData = pid ? WindowManager.windows.get(pid) : null;
+  if (pid && !winData) return;
+  SFX.play('fail');
+  if (winData && winData.type === 'assembly' && state.isJobActive) {
+      clearInterval(state.jobIncomeInterval);
+      state.isJobActive = false;
+      state.jobCooldownUntil = Date.now() + 60000;
+  }
+  desktop.classList.add('shake');
+  setTimeout(() => desktop.classList.remove('shake'), 400);
+  overlayTitle.textContent = "CRITICAL ERROR";
+  overlayMsg.textContent = `${reason} | Financial Loss: -$${nice(usdLost)}`;
+  overlay.style.display = 'flex';
+  state.currentBtcAmount = Math.max(0, state.currentBtcAmount - (usdLost / btcPrice));
+  if(pid) WindowManager.destroy(pid);
+  overlayOk.onclick = () => { SFX.play('click'); overlay.style.display='none'; };
+  if(state.currentBtcAmount * btcPrice <= 0.01 && state.alive) triggerBSOD("LIQUIDATED.");
+}
+
+function startSpawning(){
+  spawnTimer = setInterval(()=>{
+    if(!state.alive) return;
+    WindowManager.create(chooseRandomWindowType());
+  }, Math.max(300, state.spawnRate));
+}
+
+function gameTick(){
+  if(!state.alive) return;
+  const baseDrainUsdPerSec = 5 + (state.meltdown / 2);
+  state.currentBtcAmount = Math.max(0, state.currentBtcAmount - (baseDrainUsdPerSec / btcPrice));
+  const currentUsdValue = state.currentBtcAmount * btcPrice;
+  badgeBtc.textContent = `BTC: ${state.currentBtcAmount.toFixed(8)}`;
+  badgeUsd.textContent = `USD: $${nice(currentUsdValue)}`;
+  badgeCopium.textContent = `Copium: ${Math.round(state.copium)}%`;
+  
+  const frac = 1 - (currentUsdValue / (INITIAL_BTC * btcPrice));
+  state.maxConcurrent = Math.round(clamp(3 + Math.pow(frac, 1.5) * 12, 3, 15));
+  state.spawnRate = clamp(2800 * Math.pow(0.05, frac), 350, 2800);
+  if(currentUsdValue <= 0.01 && state.alive) triggerBSOD("LIQUIDATED.");
+}
+
+function triggerBSOD(reason){
+  state.alive = false;
+  SFX.play('fail');
+  bsod.style.display = 'block';
+  
+  // Calculate survival time
+  const elapsed = Date.now() - startTime;
+  const seconds = Math.floor((elapsed / 1000) % 60);
+  const minutes = Math.floor((elapsed / (1000 * 60)) % 60);
+  const hours = Math.floor((elapsed / (1000 * 60 * 60)) % 24);
+  const days = Math.floor(elapsed / (1000 * 60 * 60 * 24));
+  
+  let survivalMsg = "You survived for ";
+  if(days) survivalMsg += `${days} day${days>1?'s':''}, `;
+  if(hours) survivalMsg += `${hours} hour${hours>1?'s':''}, `;
+  if(minutes) survivalMsg += `${minutes} minute${minutes>1?'s':''}, `;
+  survivalMsg += `${seconds} second${seconds>1?'s':''}.`;
+  document.getElementById('bsod-survival').textContent = survivalMsg;
+
+  clearInterval(tickTimer); clearInterval(spawnTimer); clearInterval(clockTimer);
+  WindowManager.windows.forEach((val, key) => WindowManager.destroy(key));
+}
+
+async function boot(){
+  await fetchPrice();
+  const initialUsdValue = state.currentBtcAmount * btcPrice;
+  badgeBtc.textContent = `BTC: ${state.currentBtcAmount.toFixed(8)}`;
+  badgeUsd.textContent = `USD: $${nice(initialUsdValue)}`;
+
+  tickTimer = setInterval(gameTick, 1000); 
+  startSpawning();
+  priceTimer = setInterval(fetchPrice, 20000);
+  clockTimer = setInterval(() => { badgeClock.textContent = new Date().toLocaleTimeString(); }, 1000);
+  
+  document.getElementById('icon-job').onclick = () => {
+    SFX.play('click'); if(!state.alive) return;
+    if (state.isJobActive) {
+        overlayTitle.textContent = "Job Info";
+        overlayMsg.textContent = "Job is already active. Solve the assembly challenge.";
+        overlay.style.display = 'flex'; return;
+    }
+    if (Date.now() < state.jobCooldownUntil) {
+        const cooldownLeft = Math.ceil((state.jobCooldownUntil - Date.now()) / 1000);
+        overlayTitle.textContent = "Job Cooldown";
+        overlayMsg.textContent = `On cooldown for ${cooldownLeft} more seconds.`;
+        overlay.style.display = 'flex'; return;
+    }
+    state.isJobActive = true;
+    state.jobIncomeInterval = setInterval(() => {
+        if (!state.isJobActive) { clearInterval(state.jobIncomeInterval); return; }
+        state.currentBtcAmount += 1 / btcPrice;
+    }, 10000);
+    WindowManager.create('assembly');
+  };
+
+  document.getElementById('icon-cleanup').onclick = () => {
+      SFX.play('click'); if (!state.alive) return;
+      overlay.style.display = 'flex';
+      if (Date.now() < state.cleanupCooldownUntil) {
+          const cooldownLeft = Math.ceil((state.cleanupCooldownUntil - Date.now()) / 1000);
+          overlayTitle.textContent = "Cleanup Cooldown";
+          overlayMsg.textContent = `System is still optimizing. Cooldown: ${cooldownLeft}s.`;
+      } else if (state.copium < 20) {
+          overlayTitle.textContent = "Cleanup Failed";
+          overlayMsg.textContent = "Not enough copium to run the cleanup script.";
+      } else {
+          state.copium -= 20;
+          state.cleanupCooldownUntil = Date.now() + 45000;
+          let cleanedCount = 0;
+          const cleanableTypes = ['spam', 'captcha'];
+          for (const [pid, winData] of WindowManager.windows.entries()) {
+              if (cleanableTypes.includes(winData.type)) {
+                  WindowManager.destroy(pid);
+                  cleanedCount++;
+              }
+          }
+          overlayTitle.textContent = "Cleanup Complete";
+          overlayMsg.textContent = `System script closed ${cleanedCount} non-critical threat(s).`;
+      }
+  };
+
+  document.getElementById('icon-hustle').onclick = () => {
+    SFX.play('click'); if(!state.alive) return;
+    overlay.style.display = 'flex';
+    if (state.copium < 10) { overlayTitle.textContent = "Hustle Failed"; overlayMsg.textContent = "Not enough copium."; }
+    else {
+        state.copium -= 10;
+        if (Math.random() < 0.6) {
+            const gain = 15 + Math.random() * 10;
+            state.currentBtcAmount += gain / btcPrice;
+            overlayTitle.textContent = "Success";
+            overlayMsg.textContent = `Hustle paid off! +$${nice(gain)}.`;
+        } else { handleFailure(null, 150, "The side hustle was a scam!"); return; }
+    }
+  };
+  
+  document.getElementById('icon-meme').onclick = () => {
+      SFX.play('click'); if (!state.alive) return;
+      overlay.style.display = 'flex';
+      if (state.copium < 15) { overlayTitle.textContent = "Meme Failed"; overlayMsg.textContent = "Not enough copium to go viral."; }
+      else {
+          state.copium -= 15;
+          if (Math.random() < 0.35) {
+              const gain = 200;
+              state.currentBtcAmount += gain / btcPrice;
+              overlayTitle.textContent = "Meme GOD!";
+              overlayMsg.textContent = `Your meme went viral! +$${nice(gain)}!`;
+          } else {
+              const loss = 300;
+              overlayTitle.textContent = "Meme Backfired!";
+              overlayMsg.textContent = `Cringe. -$${nice(loss)}.`;
+              handleFailure(null, loss, "Memeing is a dangerous game.");
+              return;
+          }
+      }
+  };
+
+  document.getElementById('icon-vault').addEventListener('dragover', e=>e.preventDefault());
+  document.getElementById('icon-vault').addEventListener('drop', e => {
+      e.preventDefault();
+      if(e.dataTransfer.getData('text/plain') === 'wallet-file'){
+          for (const [pid, winData] of WindowManager.windows.entries()) {
+              if (winData.type === 'rescue') {
+                  handleAction(pid, true, 20);
+                  overlayTitle.textContent = "Success";
+                  overlayMsg.textContent = "Wallet file secured!";
+                  overlay.style.display = 'flex';
+                  return;
+              }
+          }
+      }
+  });
+
+  overlayOk.onclick = ()=> {SFX.play('click'); overlay.style.display='none'};
+  bsodRestart.onclick = ()=> location.reload();
+}
+
+boot();
+</script>
+</body>
+</html>
